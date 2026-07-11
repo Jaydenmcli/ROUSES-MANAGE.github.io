@@ -167,22 +167,19 @@ Read Schedule
 <script>
 
 const SUPABASE_URL="https://gkcsgvpzlfiqmcgbhskq.supabase.co";
-
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrY3NndnB6bGZpcW1jZ2Joc2txIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MzQ1NjEsImV4cCI6MjA5OTMxMDU2MX0.JgKJTwdR1PaFq41_5icsu2JnzZfwOxDd1yabuwxBC8o";
 
 const client=supabase.createClient(
-
 SUPABASE_URL,
-
 SUPABASE_KEY
-
 );
 
 const file=document.getElementById("file");
-
 const drop=document.getElementById("drop");
-
 const preview=document.getElementById("preview");
+const output=document.getElementById("output");
+const progress=document.querySelector(".progress");
+const bar=document.getElementById("bar");
 
 drop.onclick=()=>file.click();
 
@@ -190,11 +187,107 @@ file.onchange=()=>{
 
 const f=file.files[0];
 
-preview.src=URL.createObjectURL(f);
+if(!f)return;
 
+preview.src=URL.createObjectURL(f);
 preview.style.display="block";
 
 };
+
+async function processImage(){
+
+const f=file.files[0];
+
+if(!f){
+alert("Please choose a schedule image.");
+return;
+}
+
+output.textContent="Uploading image...";
+
+progress.style.display="block";
+
+bar.style.width="10%";
+bar.innerHTML="10%";
+
+const {error}=await client.storage
+.from("schedules")
+.upload(
+"currentSchedule.png",
+f,
+{
+upsert:true
+}
+);
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+bar.style.width="30%";
+bar.innerHTML="30%";
+
+output.textContent="Reading schedule with OCR...";
+
+const result=await Tesseract.recognize(
+
+f,
+
+"eng",
+
+{
+
+logger:m=>{
+
+if(m.status==="recognizing text"){
+
+const percent=Math.round(m.progress*60)+30;
+
+bar.style.width=percent+"%";
+
+bar.innerHTML=percent+"%";
+
+}
+
+}
+
+}
+
+);
+
+bar.style.width="100%";
+bar.innerHTML="100%";
+
+output.textContent=result.data.text;
+
+await parseSchedule(result.data.text);
+
+}
+
+async function parseSchedule(text){
+
+output.textContent+="\n\n-------------\n";
+output.textContent+="Searching for employee rows...\n";
+
+const lines=text.split("\n");
+
+for(const line of lines){
+
+const clean=line.trim();
+
+if(clean.length<3)continue;
+
+console.log(clean);
+
+}
+
+output.textContent+="Done.";
+
+}
 
 </script>
 
